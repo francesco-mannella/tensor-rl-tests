@@ -20,30 +20,36 @@ def pullBandit(bandit):
 graph = tf.Graph()
 # Use it as default within a scope
 with graph.as_default():
+    
 
     # These two lines established the feed-forward part of the network. This
     # does the actual choosing.
     weights = tf.Variable(tf.ones([num_bandits]), name="weights")
-    chosen_action = tf.argmax(weights, 0, name="action_selection")
+    with tf.variable_scope("spreading"):
+        chosen_action = tf.argmax(weights, 0, name="choosen_action")
 
     # The next six lines establish the training proceedure. We feed the reward
     # and chosen action into the network to compute the loss, and use it to
     # update the network.
     reward_holder = tf.placeholder(shape=[1],dtype=tf.float32, name="reward")
     action_holder = tf.placeholder(shape=[1],dtype=tf.int32, name="selected_action")
-    responsible_weight = tf.slice(weights,action_holder,[1], name="selected_weight")
-    loss = -(tf.log(responsible_weight)*reward_holder)
-    optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001)
-    update = optimizer.minimize(loss)
+    with tf.variable_scope("updating"):
+        responsible_weight = tf.slice(weights,action_holder,[1], name="selected_weight")
+        loss = -(tf.log(responsible_weight)*reward_holder)
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001, name="GD")
+        update = optimizer.minimize(loss, name="update")
         
-    total_episodes = 100000 #Set total number of episodes to train agent on.
+    total_episodes = 10000 #Set total number of episodes to train agent on.
     total_reward = np.zeros(num_bandits) #Set scoreboard for bandits to 0.
     e = 0.1 #Set the chance of taking a random action.
     
     weights_store = np.zeros([total_episodes, num_bandits])
 
     with tf.Session() as sess:
+            
+        # initialize tensorflow variables
         sess.run(tf.global_variables_initializer())
+        
         # write info about the graph into the directory "./tb"
         file_writer = tf.summary.FileWriter('./tb', sess.graph)
 
@@ -69,7 +75,7 @@ with graph.as_default():
             # store current weights
             weights_store[i, :] = weights.eval()
 
-            if i % 50 == 0:
+            if i % 1000 == 0:
                 print "Running reward for the " + str(num_bandits) + \
                         " bandits: " + str(total_reward)
                 print "Weights: {}".format(weights.eval()) 
